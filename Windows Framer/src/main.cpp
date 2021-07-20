@@ -8,13 +8,12 @@
 #include <atomic>
 #include <thread>
 
-#include "resource.h"
+#include <resource.h>
 
 #define WM_TRAY (WM_USER + 100)
 #define WM_TASKBAR_CREATED RegisterWindowMessage(TEXT("TaskbarCreated"))
 
 #define APP_NAME TEXT("Windows Framer")
-#define APP_TIP TEXT("Windows Framer hiding here")
 
 NOTIFYICONDATA nid; //Tray attribute
 HMENU hMenu; //Tray menu
@@ -52,15 +51,6 @@ void InitTray(HINSTANCE hInstance, HWND hWnd)
     AppendMenu(hMenu, MF_STRING, ID_EXIT, TEXT("exit"));
 
     Shell_NotifyIcon(NIM_ADD, &nid);
-}
-
-//Presentation tray bubble reminder
-void ShowTrayMsg()
-{
-    lstrcpy(nid.szInfoTitle, APP_NAME);
-    lstrcpy(nid.szInfo, TEXT("Windows Framer minimized"));
-    nid.uTimeout = 500;
-    Shell_NotifyIcon(NIM_MODIFY, &nid);
 }
 
 
@@ -109,10 +99,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             Shell_NotifyIcon(NIM_DELETE, &nid);
         PostQuitMessage(0);
         isClosed = true;
-        break;
-    case WM_TIMER:
-        ShowTrayMsg();
-        KillTimer(hWnd, wParam);
         break;
     }
     if (uMsg == WM_TASKBAR_CREATED)
@@ -210,51 +196,100 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
 {
     ImVec2 impos, imsize;
     bool willSnap = false;
-    size_t willSnapIndex = 0;
+    int willSnapIndex = -1;
     bool wasCtrlClicked = false;
-    bool snapNext = false;
+    HWND fhWnd = NULL;
+    RECT titleBarRect;
+    bool wasHidden = false;
+    bool isHidden2 = false;
+
+    std::vector<std::unique_ptr<sf::RenderWindow>> windows;
 
     sf::Clock deltaClock;
     while (window.isOpen())
     {
         // pause
+        wasHidden = isHidden2;
+        isHidden2 = isHidden;
 
         if (isClosed)
             window.close();
 
-        std::cout << willSnap << std::endl;
 
         if (isHidden)
         {
+            // create windows
+            if (isHidden2 && !wasHidden)
+            {
+                for (auto& w : windows)
+                    w->close();
+                windows.clear();
+
+                for (auto i = 0; i < mm.pos.size(); ++i)
+                {
+                    windows.emplace_back(new sf::RenderWindow(sf::VideoMode(mm.size[i].x, mm.size[i].y), "", sf::Style::None));
+                    windows[i]->setPosition({ mm.pos[i].x, mm.pos[i].y });
+                    windows[i]->clear(sf::Color::White);
+
+
+                    HWND hWnd = windows[i]->getSystemHandle();
+                    SetWindowLongPtr(hWnd, GWL_EXSTYLE, GetWindowLongPtr(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+                    SetLayeredWindowAttributes(hWnd, 0, 128, LWA_ALPHA);
+
+                    windows[i]->display();
+                }
+            }
+
             window.setVisible(false);
 
-            HWND hWnd = NULL;
-            RECT titleBarRect;
+
+            bool isCtrlClicked = sf::Keyboard::isKeyPressed(sf::Keyboard::LControl);
+
+            
+            if (fhWnd != GetForegroundWindow())
+                fhWnd = GetForegroundWindow();
 
 
-            if (hWnd != GetForegroundWindow())
-                hWnd = GetForegroundWindow();
+            if (isHidden2 && !wasHidden)
+                for (auto& w : windows)
+                    w->setVisible(false);
 
+            SetActiveWindow(fhWnd);
+
+            // if pressed title bar
             if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
             {
-                if (hWnd && !wasCtrlClicked && sf::Keyboard::isKeyPressed(sf::Keyboard::LControl))
+                if (fhWnd)
                 {
-                    titleBarRect = GetTitleBarRect(hWnd);
+                    auto mx = sf::Mouse::getPosition().x;
+                    auto my = sf::Mouse::getPosition().y;
 
-                    if (sf::Mouse::getPosition().x > titleBarRect.left &&
-                        sf::Mouse::getPosition().x < titleBarRect.right &&
-                        sf::Mouse::getPosition().y > titleBarRect.top &&
-                        sf::Mouse::getPosition().y < titleBarRect.bottom)
+                    titleBarRect = GetTitleBarRect(fhWnd);
+
+                    if (mx > titleBarRect.left &&
+                        mx < titleBarRect.right &&
+                        my > titleBarRect.top &&
+                        my < titleBarRect.bottom)
                     {
+                        // ctrl toggle
+                        if (!isCtrlClicked && wasCtrlClicked)
+                            willSnap = !willSnap;
+
+                        // windows
+                        if (willSnap)
+                            for (auto& w : windows)
+                                w->setVisible(true);
+                        else
+                            for (auto& w : windows)
+                                w->setVisible(false);
+
+                        // search for snap rect
+                        willSnapIndex = -1;
                         for (auto i = 0; i < mm.pos.size(); ++i)
                         {
-                            auto mx = sf::Mouse::getPosition().x;
-                            auto my = sf::Mouse::getPosition().y;
-
                             if (mx > mm.pos[i].x && mx < mm.pos[i].x + mm.size[i].x &&
                                 my > mm.pos[i].y && my < mm.pos[i].y + mm.size[i].y)
                             {
-                                willSnap = !willSnap;
                                 willSnapIndex = i;
                                 break;
                             }
@@ -265,22 +300,23 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
             else if (willSnap)
                 {
                     willSnap = false;
-                    snapNext = true;
+                    if (willSnapIndex >= 0)
+                        MoveWindow(fhWnd, mm.pos[willSnapIndex].x - 8, mm.pos[willSnapIndex].y,
+                            mm.size[willSnapIndex].x + 16, mm.size[willSnapIndex].y + 8, true);
+                    for (auto& w : windows)
+                        w->setVisible(false);
                 }
 
-            if (snapNext)
-            {
-                MoveWindow(hWnd, mm.pos[willSnapIndex].x - 8, mm.pos[willSnapIndex].y,
-                    mm.size[willSnapIndex].x + 16, mm.size[willSnapIndex].y + 8, 0);
-                snapNext = false;
-            }
-
-            wasCtrlClicked = sf::Keyboard::isKeyPressed(sf::Keyboard::LControl);
+            wasCtrlClicked = isCtrlClicked;
+            wasHidden = isHidden2;
 
             continue;
         }
         else
+        {
             window.setVisible(true);
+            window.requestFocus();
+        }
 
         // event 
 
@@ -329,7 +365,11 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
         {
             auto i = mm.pos.size() - 1;
             shapes[i].setPosition(mm.pos[i].x, mm.pos[i].y);
-            shapes[i].setSize({ (float)sf::Mouse::getPosition().x - mm.pos[i].x, (float)sf::Mouse::getPosition().y - mm.pos[i].y });
+            shapes[i].setSize(
+                { 
+                    (float)(sf::Mouse::getPosition().x - mm.pos[i].x), 
+                    (float)(sf::Mouse::getPosition().y - mm.pos[i].y)
+                });
         }
 
 
@@ -337,8 +377,10 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
 
         window.clear(sf::Color(100, 100, 100, 0));
 
+        for (auto& s : shapes)
+            window.draw(s);
+
         SetLayeredWindowAttributes(hWnd, 0, 128, LWA_ALPHA);
-        for (auto& s : shapes) window.draw(s);
 
         ImGui::SFML::Render(window);
 
@@ -356,6 +398,7 @@ void TrayHandling()
     wc.hIcon = NULL;
     wc.cbClsExtra = 0;
     wc.cbWndExtra = 0;
+    wc.hInstance = NULL;
     wc.lpfnWndProc = WndProc;
     wc.hbrBackground = NULL;
     wc.lpszMenuName = NULL;
@@ -367,22 +410,16 @@ void TrayHandling()
     thWnd = CreateWindowEx(WS_EX_TOOLWINDOW, APP_NAME, APP_NAME, WS_POPUP, CW_USEDEFAULT,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hInstance, NULL);
 
-    ShowWindow(thWnd, SW_HIDE);
+    ShowWindow(thWnd, SW_NORMAL);
     UpdateWindow(thWnd);
 
     InitTray(hInstance, thWnd); // instantiate the tray
-    SetTimer(thWnd, 3, 1000, NULL); //Timed message, demo bubble prompt function
 
     while (GetMessage(&msg, NULL, 0, 0))
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
-}
-
-void ResizeHandling(const MouseManager& mm)
-{
-    
 }
 
 int main()
@@ -404,14 +441,12 @@ int main()
 
     // tray handling window
     std::thread t(TrayHandling);
-    std::thread r(ResizeHandling, mm);
 
     EditorWindow(mm, window, hWnd, shapes);
 
     ImGui::SFML::Shutdown();
 
     t.join();
-    r.join();
 
     return 0;
 }

@@ -171,13 +171,10 @@
     <ClInclude Include="include\imgui-SFML_export.h" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="assets\resource.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="assets\resource.aps" />
-  </ItemGroup>
-  <ItemGroup>
     <Image Include="assets\ico.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="assets\resource.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
