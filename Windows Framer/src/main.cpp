@@ -22,6 +22,19 @@ HMENU hMenu; //Tray menu
 std::atomic_bool isHidden = false;
 std::atomic_bool isClosed = false;
 
+RECT GetTitleBarRect(HWND hWnd)
+{
+    RECT wrect;
+    GetWindowRect(hWnd, &wrect);
+    RECT ret;
+    ret.left = wrect.left;
+    ret.right = wrect.right;
+    ret.top = wrect.top;
+    ret.bottom = wrect.top + 31;
+
+    return ret;
+}
+
  // instantiate the tray
 void InitTray(HINSTANCE hInstance, HWND hWnd)
 {
@@ -45,8 +58,8 @@ void InitTray(HINSTANCE hInstance, HWND hWnd)
 void ShowTrayMsg()
 {
     lstrcpy(nid.szInfoTitle, APP_NAME);
-    lstrcpy(nid.szInfo, TEXT("receive a message!"));
-    nid.uTimeout = 1000;
+    lstrcpy(nid.szInfo, TEXT("Windows Framer minimized"));
+    nid.uTimeout = 500;
     Shell_NotifyIcon(NIM_MODIFY, &nid);
 }
 
@@ -117,8 +130,7 @@ public:
 
     std::vector<sf::Vector2i> pos;
     std::vector<sf::Vector2i> size;
-    sf::Vector2i* currentPos = nullptr;
-    sf::Vector2i* currentSize = nullptr;
+    int current = -1;
     bool isDown = false;
 
     void OnMousePressed(sf::Mouse::Button button, unsigned int x, unsigned int y, std::vector<sf::RectangleShape>& shapes, ImVec2 impos, ImVec2 imsize)
@@ -140,8 +152,7 @@ public:
             pos.push_back(sf::Vector2i(x, y));
             size.push_back(sf::Vector2i(0, 0));
 
-            currentPos = &pos[pos.size() - 1];
-            currentSize = &size[size.size() - 1];
+            current = pos.size() - 1;
         }
         else if (button == sf::Mouse::Button::Right)
         {
@@ -170,12 +181,12 @@ public:
 
             isDown = false;
 
-            auto tmp = *currentPos;
-            currentPos->x = std::min(currentPos->x, (int)x);
-            currentPos->y = std::min(currentPos->y, (int)y);
+            auto tmp = pos[current];
+            pos[current].x = std::min(pos[current].x, (int)x);
+            pos[current].y = std::min(pos[current].y, (int)y);
 
-            currentSize->x = std::max((int)x - tmp.x, tmp.x - (int)x);
-            currentSize->y = std::max((int)y - tmp.y, tmp.y - (int)y);
+            size[current].x = std::max((int)x - tmp.x, tmp.x - (int)x);
+            size[current].y = std::max((int)y - tmp.y, tmp.y - (int)y);
 
             for (auto i = 0; i < pos.size(); ++i)
             {
@@ -183,8 +194,14 @@ public:
                 shapes[i].setSize({ (float)size[i].x, (float)size[i].y });
             }
 
-            currentPos = nullptr;
-            currentSize = nullptr;
+            if (size[current].x < 10 || size[current].y < 10)
+            {
+                pos.erase(pos.begin() + current);
+                size.erase(size.begin() + current);
+                shapes.erase(shapes.begin() + current);
+            }
+
+            current = -1;
         }
     }
 };
@@ -192,10 +209,79 @@ public:
 void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::vector<sf::RectangleShape>& shapes)
 {
     ImVec2 impos, imsize;
+    bool willSnap = false;
+    size_t willSnapIndex = 0;
+    bool wasCtrlClicked = false;
+    bool snapNext = false;
 
     sf::Clock deltaClock;
     while (window.isOpen())
     {
+        // pause
+
+        if (isClosed)
+            window.close();
+
+        std::cout << willSnap << std::endl;
+
+        if (isHidden)
+        {
+            window.setVisible(false);
+
+            HWND hWnd = NULL;
+            RECT titleBarRect;
+
+
+            if (hWnd != GetForegroundWindow())
+                hWnd = GetForegroundWindow();
+
+            if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
+            {
+                if (hWnd && !wasCtrlClicked && sf::Keyboard::isKeyPressed(sf::Keyboard::LControl))
+                {
+                    titleBarRect = GetTitleBarRect(hWnd);
+
+                    if (sf::Mouse::getPosition().x > titleBarRect.left &&
+                        sf::Mouse::getPosition().x < titleBarRect.right &&
+                        sf::Mouse::getPosition().y > titleBarRect.top &&
+                        sf::Mouse::getPosition().y < titleBarRect.bottom)
+                    {
+                        for (auto i = 0; i < mm.pos.size(); ++i)
+                        {
+                            auto mx = sf::Mouse::getPosition().x;
+                            auto my = sf::Mouse::getPosition().y;
+
+                            if (mx > mm.pos[i].x && mx < mm.pos[i].x + mm.size[i].x &&
+                                my > mm.pos[i].y && my < mm.pos[i].y + mm.size[i].y)
+                            {
+                                willSnap = !willSnap;
+                                willSnapIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            else if (willSnap)
+                {
+                    willSnap = false;
+                    snapNext = true;
+                }
+
+            if (snapNext)
+            {
+                MoveWindow(hWnd, mm.pos[willSnapIndex].x - 8, mm.pos[willSnapIndex].y,
+                    mm.size[willSnapIndex].x + 16, mm.size[willSnapIndex].y + 8, 0);
+                snapNext = false;
+            }
+
+            wasCtrlClicked = sf::Keyboard::isKeyPressed(sf::Keyboard::LControl);
+
+            continue;
+        }
+        else
+            window.setVisible(true);
+
         // event 
 
         sf::Event event;
@@ -229,7 +315,7 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
         ImGui::SFML::Update(window, deltaClock.restart());
 
         ImGui::Begin("Utilities");
-        if (ImGui::Button("Click here to minimize"))
+        if (ImGui::Button("Minimize to tray"))
         {
             isHidden = true;
         }
@@ -246,18 +332,10 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
             shapes[i].setSize({ (float)sf::Mouse::getPosition().x - mm.pos[i].x, (float)sf::Mouse::getPosition().y - mm.pos[i].y });
         }
 
-        if (isClosed)
-            window.close();
-
-        if (isHidden)
-            window.setVisible(false);
-        else
-            window.setVisible(true);
-
 
         // draw
 
-        window.clear();
+        window.clear(sf::Color(100, 100, 100, 0));
 
         SetLayeredWindowAttributes(hWnd, 0, 128, LWA_ALPHA);
         for (auto& s : shapes) window.draw(s);
@@ -302,6 +380,11 @@ void TrayHandling()
     }
 }
 
+void ResizeHandling(const MouseManager& mm)
+{
+    
+}
+
 int main()
 {
     // setter window
@@ -321,11 +404,14 @@ int main()
 
     // tray handling window
     std::thread t(TrayHandling);
+    std::thread r(ResizeHandling, mm);
 
     EditorWindow(mm, window, hWnd, shapes);
 
     ImGui::SFML::Shutdown();
+
     t.join();
+    r.join();
 
     return 0;
 }

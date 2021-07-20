@@ -89,7 +89,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>D:\SuperEGG\Script\C++\Windows Framer\Windows Framer\assets;D:\SuperEGG\Script\C++\Windows Framer\Windows Framer\include;C:\VS_Library\imgui-1.81;C:\VS_Library\SFML-2.5.1\32bit\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\Windows Framer\assets;$(SolutionDir)\Windows Framer\include;C:\VS_Library\imgui-1.81-SFML;C:\VS_Library\SFML-2.5.1\32bit\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -107,7 +107,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>D:\SuperEGG\Script\C++\Windows Framer\Windows Framer\assets;D:\SuperEGG\Script\C++\Windows Framer\Windows Framer\include;C:\VS_Library\imgui-1.81;C:\VS_Library\SFML-2.5.1\32bit\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\Windows Framer\assets;$(SolutionDir)\Windows Framer\include;C:\VS_Library\imgui-1.81-SFML;C:\VS_Library\SFML-2.5.1\32bit\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -125,7 +125,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>D:\SuperEGG\Script\C++\Windows Framer\Windows Framer\assets;D:\SuperEGG\Script\C++\Windows Framer\Windows Framer\include;C:\VS_Library\imgui-1.81;C:\VS_Library\SFML-2.5.1\32bit\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\Windows Framer\assets;$(SolutionDir)\Windows Framer\include;C:\VS_Library\imgui-1.81-SFML;C:\VS_Library\SFML-2.5.1\32bit\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -143,7 +143,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>D:\SuperEGG\Script\C++\Windows Framer\Windows Framer\assets;D:\SuperEGG\Script\C++\Windows Framer\Windows Framer\include;C:\VS_Library\imgui-1.81;C:\VS_Library\SFML-2.5.1\32bit\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\Windows Framer\assets;$(SolutionDir)\Windows Framer\include;C:\VS_Library\imgui-1.81-SFML;C:\VS_Library\SFML-2.5.1\32bit\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -174,10 +174,10 @@
     <ResourceCompile Include="assets\resource.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="assets\ico.ico" />
+    <None Include="assets\resource.aps" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="assets\resource.aps" />
+    <Image Include="assets\ico.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

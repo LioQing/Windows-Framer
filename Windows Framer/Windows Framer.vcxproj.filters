@@ -51,11 +51,11 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="assets\resource.aps" />
+  </ItemGroup>
+  <ItemGroup>
     <Image Include="assets\ico.ico">
       <Filter>Resource Files</Filter>
     </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="assets\resource.aps" />
   </ItemGroup>
 </Project>
