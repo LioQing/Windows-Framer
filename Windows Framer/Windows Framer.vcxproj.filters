@@ -49,6 +49,9 @@
     <Image Include="assets\ico.ico">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="demo\demo.gif">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="assets\resource.rc">

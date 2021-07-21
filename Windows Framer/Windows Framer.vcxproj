@@ -172,6 +172,7 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="assets\ico.ico" />
+    <Image Include="demo\demo.gif" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="assets\resource.rc" />
