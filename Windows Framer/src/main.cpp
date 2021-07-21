@@ -15,8 +15,13 @@
 
 #define APP_NAME TEXT("Windows Framer")
 
+// snap grid
+// editor window transparency issue?
+
 NOTIFYICONDATA nid; //Tray attribute
 HMENU hMenu; //Tray menu
+
+const sf::Color rectCol(200, 200, 200);
 
 std::atomic_bool isHidden = false;
 std::atomic_bool isClosed = false;
@@ -229,7 +234,7 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
                 {
                     windows.emplace_back(new sf::RenderWindow(sf::VideoMode(mm.size[i].x, mm.size[i].y), "", sf::Style::None));
                     windows[i]->setPosition({ mm.pos[i].x, mm.pos[i].y });
-                    windows[i]->clear(sf::Color::White);
+                    windows[i]->clear(rectCol);
 
 
                     HWND hWnd = windows[i]->getSystemHandle();
@@ -294,6 +299,17 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
                                 break;
                             }
                         }
+
+                        // light up snap rect
+                        for (auto i = 0; i < windows.size(); ++i)
+                        {
+                            if (willSnapIndex == i)
+                                windows[i]->clear(sf::Color::White);
+                            else
+                                windows[i]->clear(rectCol);
+
+                            windows[i]->display();
+                        }
                     }
                 }
             }
@@ -356,6 +372,11 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
             isHidden = true;
         }
 
+        if (ImGui::Button("Exit"))
+        {
+            isClosed = true;
+        }
+
         impos = ImGui::GetWindowPos();
         imsize = ImGui::GetWindowSize();
 
@@ -390,7 +411,7 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
 
 void TrayHandling()
 {
-    HINSTANCE hInstance = NULL;
+    HINSTANCE hInstance = GetModuleHandle(NULL);
     HWND thWnd;
     MSG msg;
     WNDCLASS wc = { 0 };
