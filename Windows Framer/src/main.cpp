@@ -7,6 +7,7 @@
 #include <imgui-SFML.h>
 #include <atomic>
 #include <thread>
+#include <array>
 
 #include <resource.h>
 
@@ -15,8 +16,9 @@
 
 #define APP_NAME TEXT("Windows Framer")
 
-// snap grid
+// todo
 // editor window transparency issue?
+// edit rects
 
 NOTIFYICONDATA nid; //Tray attribute
 HMENU hMenu; //Tray menu
@@ -26,6 +28,18 @@ const sf::Color rectCol(200, 200, 200);
 std::atomic_bool isHidden = false;
 std::atomic_bool isClosed = false;
 
+sf::Vector2i screenSize;
+sf::Vector2i midPt;
+
+int round(int n, int m)
+{
+    float a = (float)n / m;
+    int b = std::ceil(a) * m;
+    int c = std::floor(a) * m;
+
+    return (std::abs(n - b) <= std::abs(n - c)) ? b : c;
+}
+
 RECT GetTitleBarRect(HWND hWnd)
 {
     RECT wrect;
@@ -34,7 +48,7 @@ RECT GetTitleBarRect(HWND hWnd)
     ret.left = wrect.left;
     ret.right = wrect.right;
     ret.top = wrect.top;
-    ret.bottom = wrect.top + 31;
+    ret.bottom = wrect.top + 32;
 
     return ret;
 }
@@ -124,7 +138,7 @@ public:
     int current = -1;
     bool isDown = false;
 
-    void OnMousePressed(sf::Mouse::Button button, unsigned int x, unsigned int y, std::vector<sf::RectangleShape>& shapes, ImVec2 impos, ImVec2 imsize)
+    void OnMousePressed(sf::Mouse::Button button, unsigned int x, unsigned int y, std::vector<sf::RectangleShape>& shapes, ImVec2 impos, ImVec2 imsize, bool snapToGrid, int gridSize)
     {
         if (x > impos.x && x < impos.x + imsize.x &&
             y > impos.y && y < impos.y + imsize.y)
@@ -133,7 +147,7 @@ public:
         if (button == sf::Mouse::Button::Left)
         {
             sf::RectangleShape newRect;
-            newRect.setFillColor(sf::Color::White);
+            newRect.setFillColor(sf::Color(255, 255, 255, 180));
             newRect.setOutlineThickness(1);
             newRect.setOutlineColor(sf::Color::Black);
             shapes.push_back(newRect);
@@ -143,28 +157,17 @@ public:
             pos.push_back(sf::Vector2i(x, y));
             size.push_back(sf::Vector2i(0, 0));
 
-            current = pos.size() - 1;
-        }
-        else if (button == sf::Mouse::Button::Right)
-        {
-            if (isDown)
-                OnMouseReleased(sf::Mouse::Button::Left, x, y, shapes);
-
-            for (auto i = 0; i < pos.size(); ++i)
+            if (snapToGrid)
             {
-                if (x > pos[i].x && x < pos[i].x + size[i].x &&
-                    y > pos[i].y && y < pos[i].y + size[i].y)
-                {
-                    pos.erase(pos.begin() + i);
-                    size.erase(size.begin() + i);
-                    shapes.erase(shapes.begin() + i);
-                    return;
-                }
+                pos[pos.size() - 1].x = round(pos[pos.size() - 1].x - midPt.x, gridSize) + midPt.x;
+                pos[pos.size() - 1].y = round(pos[pos.size() - 1].y - midPt.y, gridSize) + midPt.y;
             }
+
+            current = pos.size() - 1;
         }
     }
 
-    void OnMouseReleased(sf::Mouse::Button button, unsigned int x, unsigned int y, std::vector<sf::RectangleShape>& shapes)
+    void OnMouseReleased(sf::Mouse::Button button, unsigned int x, unsigned int y, std::vector<sf::RectangleShape>& shapes, bool snapToGrid, int gridSize)
     {
         if (button == sf::Mouse::Button::Left)
         {
@@ -178,6 +181,12 @@ public:
 
             size[current].x = std::max((int)x - tmp.x, tmp.x - (int)x);
             size[current].y = std::max((int)y - tmp.y, tmp.y - (int)y);
+
+            if (snapToGrid)
+            {
+                size[current].x = round(size[current].x, gridSize);
+                size[current].y = round(size[current].y, gridSize);
+            }
 
             for (auto i = 0; i < pos.size(); ++i)
             {
@@ -194,6 +203,23 @@ public:
 
             current = -1;
         }
+        else if (button == sf::Mouse::Button::Right)
+        {
+            if (isDown)
+                OnMouseReleased(sf::Mouse::Button::Left, x, y, shapes, snapToGrid, gridSize);
+
+            for (auto i = 0; i < pos.size(); ++i)
+            {
+                if (x > pos[i].x && x < pos[i].x + size[i].x &&
+                    y > pos[i].y && y < pos[i].y + size[i].y)
+                {
+                    pos.erase(pos.begin() + i);
+                    size.erase(size.begin() + i);
+                    shapes.erase(shapes.begin() + i);
+                    return;
+                }
+            }
+        }
     }
 };
 
@@ -207,8 +233,12 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
     RECT titleBarRect;
     bool wasHidden = false;
     bool isHidden2 = false;
+    int gridSize = 1;
+    bool gridShow = false;
+    bool snapToGrid = false;
 
     std::vector<std::unique_ptr<sf::RenderWindow>> windows;
+    std::vector<std::array<sf::Vertex, 2>> gridLines;
 
     sf::Clock deltaClock;
     while (window.isOpen())
@@ -249,11 +279,9 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
 
 
             bool isCtrlClicked = sf::Keyboard::isKeyPressed(sf::Keyboard::LControl);
-
             
             if (fhWnd != GetForegroundWindow())
                 fhWnd = GetForegroundWindow();
-
 
             if (isHidden2 && !wasHidden)
                 for (auto& w : windows)
@@ -282,34 +310,36 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
 
                         // windows
                         if (willSnap)
+                        {
                             for (auto& w : windows)
                                 w->setVisible(true);
+
+                            // search for snap rect
+                            willSnapIndex = -1;
+                            for (auto i = 0; i < mm.pos.size(); ++i)
+                            {
+                                if (mx > mm.pos[i].x && mx < mm.pos[i].x + mm.size[i].x &&
+                                    my > mm.pos[i].y && my < mm.pos[i].y + mm.size[i].y)
+                                {
+                                    willSnapIndex = i;
+                                    break;
+                                }
+                            }
+
+                            // light up snap rect
+                            for (auto i = 0; i < windows.size(); ++i)
+                            {
+                                if (willSnapIndex == i)
+                                    windows[i]->clear(sf::Color::White);
+                                else
+                                    windows[i]->clear(rectCol);
+
+                                windows[i]->display();
+                            }
+                        }
                         else
                             for (auto& w : windows)
                                 w->setVisible(false);
-
-                        // search for snap rect
-                        willSnapIndex = -1;
-                        for (auto i = 0; i < mm.pos.size(); ++i)
-                        {
-                            if (mx > mm.pos[i].x && mx < mm.pos[i].x + mm.size[i].x &&
-                                my > mm.pos[i].y && my < mm.pos[i].y + mm.size[i].y)
-                            {
-                                willSnapIndex = i;
-                                break;
-                            }
-                        }
-
-                        // light up snap rect
-                        for (auto i = 0; i < windows.size(); ++i)
-                        {
-                            if (willSnapIndex == i)
-                                windows[i]->clear(sf::Color::White);
-                            else
-                                windows[i]->clear(rectCol);
-
-                            windows[i]->display();
-                        }
                     }
                 }
             }
@@ -317,8 +347,8 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
                 {
                     willSnap = false;
                     if (willSnapIndex >= 0)
-                        MoveWindow(fhWnd, mm.pos[willSnapIndex].x - 8, mm.pos[willSnapIndex].y,
-                            mm.size[willSnapIndex].x + 16, mm.size[willSnapIndex].y + 8, true);
+                        MoveWindow(fhWnd, mm.pos[willSnapIndex].x, mm.pos[willSnapIndex].y,
+                            mm.size[willSnapIndex].x, mm.size[willSnapIndex].y, true);
                     for (auto& w : windows)
                         w->setVisible(false);
                 }
@@ -332,6 +362,7 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
         {
             window.setVisible(true);
             window.requestFocus();
+            SetForegroundWindow(hWnd);
         }
 
         // event 
@@ -351,12 +382,12 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
             }
             case sf::Event::MouseButtonPressed:
             {
-                mm.OnMousePressed(event.mouseButton.button, event.mouseButton.x, event.mouseButton.y, shapes, impos, imsize);
+                mm.OnMousePressed(event.mouseButton.button, event.mouseButton.x, event.mouseButton.y, shapes, impos, imsize, snapToGrid, gridSize);
                 break;
             }
             case sf::Event::MouseButtonReleased:
             {
-                mm.OnMouseReleased(event.mouseButton.button, event.mouseButton.x, event.mouseButton.y, shapes);
+                mm.OnMouseReleased(event.mouseButton.button, event.mouseButton.x, event.mouseButton.y, shapes, snapToGrid, gridSize);
                 break;
             }
             }
@@ -367,7 +398,51 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
         ImGui::SFML::Update(window, deltaClock.restart());
 
         ImGui::Begin("Utilities");
-        if (ImGui::Button("Minimize to tray"))
+
+        auto g1 = ImGui::SliderInt("Grid Size", &gridSize, 1, 50);
+        auto g2 = ImGui::Checkbox("Show Grid", &gridShow);
+        ImGui::SameLine();
+        ImGui::Checkbox("Snap To Grid", &snapToGrid);
+
+        auto gg = g1 || g2;
+
+        if (gg)
+        {
+            gridLines.clear();
+            if (gridShow)
+            {
+                for (auto x = 0; x < midPt.x; x += gridSize)
+                {
+                    gridLines.emplace_back();
+                    gridLines[gridLines.size() - 1][0] = sf::Vertex({ (float)midPt.x + x, 0.f });
+                    gridLines[gridLines.size() - 1][0].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][1] = sf::Vertex({ (float)midPt.x + x, (float)screenSize.y });
+                    gridLines[gridLines.size() - 1][1].color = sf::Color(180, 180, 180);
+
+                    gridLines.emplace_back();
+                    gridLines[gridLines.size() - 1][0] = sf::Vertex({ (float)midPt.x - x, 0.f });
+                    gridLines[gridLines.size() - 1][0].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][1] = sf::Vertex({ (float)midPt.x - x, (float)screenSize.y });
+                    gridLines[gridLines.size() - 1][1].color = sf::Color(180, 180, 180);
+                }
+                for (auto y = 0; y < midPt.y; y += gridSize)
+                {
+                    gridLines.emplace_back();
+                    gridLines[gridLines.size() - 1][0] = sf::Vertex({ 0.f, (float)midPt.y + y });
+                    gridLines[gridLines.size() - 1][0].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][1] = sf::Vertex({ (float)screenSize.x, (float)midPt.y + y });
+                    gridLines[gridLines.size() - 1][1].color = sf::Color(180, 180, 180);
+
+                    gridLines.emplace_back();
+                    gridLines[gridLines.size() - 1][0] = sf::Vertex({ 0.f, (float)midPt.y - y });
+                    gridLines[gridLines.size() - 1][0].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][1] = sf::Vertex({ (float)screenSize.x, (float)midPt.y - y });
+                    gridLines[gridLines.size() - 1][1].color = sf::Color(180, 180, 180);
+                }
+            }
+        }
+
+        if (ImGui::Button("Minimize to Tray"))
         {
             isHidden = true;
         }
@@ -398,10 +473,15 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
 
         window.clear(sf::Color(100, 100, 100, 0));
 
+        if (gridShow)
+            for (auto& l : gridLines)
+                window.draw(l.data(), 2, sf::Lines);
+
         for (auto& s : shapes)
             window.draw(s);
 
-        SetLayeredWindowAttributes(hWnd, 0, 128, LWA_ALPHA);
+
+        SetLayeredWindowAttributes(hWnd, 0, 180, LWA_ALPHA);
 
         ImGui::SFML::Render(window);
 
@@ -454,6 +534,9 @@ int main()
     sf::RenderWindow window(screen, "", sf::Style::None);
 
     ImGui::SFML::Init(window);
+
+    screenSize = sf::Vector2i(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height);
+    midPt = sf::Vector2{ screenSize.x / 2, screenSize.y / 2 };
 
     HWND hWnd = window.getSystemHandle();
     SetWindowLongPtr(hWnd, GWL_EXSTYLE, GetWindowLongPtr(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
