@@ -8,6 +8,7 @@
 #include <atomic>
 #include <thread>
 #include <array>
+#include <dwmapi.h>
 
 #include <resource.h>
 
@@ -17,13 +18,12 @@
 #define APP_NAME TEXT("Windows Framer")
 
 // todo
-// editor window transparency issue?
 // edit rects
 
 NOTIFYICONDATA nid; //Tray attribute
 HMENU hMenu; //Tray menu
 
-const sf::Color rectCol(200, 200, 200);
+const sf::Color rectCol(100, 100, 100, 128);
 
 std::atomic_bool isHidden = false;
 std::atomic_bool isClosed = false;
@@ -147,7 +147,7 @@ public:
         if (button == sf::Mouse::Button::Left)
         {
             sf::RectangleShape newRect;
-            newRect.setFillColor(sf::Color(255, 255, 255, 180));
+            newRect.setFillColor(sf::Color(180, 180, 180, 128));
             newRect.setOutlineThickness(1);
             newRect.setOutlineColor(sf::Color::Black);
             shapes.push_back(newRect);
@@ -268,10 +268,14 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
 
 
                     HWND hWnd = windows[i]->getSystemHandle();
-                    SetWindowLongPtr(hWnd, GWL_EXSTYLE, GetWindowLongPtr(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-                    SetLayeredWindowAttributes(hWnd, 0, 128, LWA_ALPHA);
+                    DWM_BLURBEHIND bb;
+                    bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
+                    bb.fEnable = true;
+                    bb.hRgnBlur = CreateRectRgn(0, 0, -1, -1);
+                    DwmEnableBlurBehindWindow(hWnd, &bb);
 
                     windows[i]->display();
+                    SetForegroundWindow(hWnd);
                 }
             }
 
@@ -281,12 +285,17 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
             bool isCtrlClicked = sf::Keyboard::isKeyPressed(sf::Keyboard::LControl);
             
             if (fhWnd != GetForegroundWindow())
+            {
                 fhWnd = GetForegroundWindow();
+                for (auto& w : windows)
+                    SetForegroundWindow(w->getSystemHandle());
+            }
 
             if (isHidden2 && !wasHidden)
                 for (auto& w : windows)
                     w->setVisible(false);
 
+            SetForegroundWindow(fhWnd);
             SetActiveWindow(fhWnd);
 
             // if pressed title bar
@@ -330,7 +339,7 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
                             for (auto i = 0; i < windows.size(); ++i)
                             {
                                 if (willSnapIndex == i)
-                                    windows[i]->clear(sf::Color::White);
+                                    windows[i]->clear(sf::Color(150, 150, 150, 128));
                                 else
                                     windows[i]->clear(rectCol);
 
@@ -355,6 +364,8 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
 
             wasCtrlClicked = isCtrlClicked;
             wasHidden = isHidden2;
+
+            window.display();
 
             continue;
         }
@@ -415,29 +426,29 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
                 {
                     gridLines.emplace_back();
                     gridLines[gridLines.size() - 1][0] = sf::Vertex({ (float)midPt.x + x, 0.f });
-                    gridLines[gridLines.size() - 1][0].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][0].color = sf::Color(120, 120, 120, 128);
                     gridLines[gridLines.size() - 1][1] = sf::Vertex({ (float)midPt.x + x, (float)screenSize.y });
-                    gridLines[gridLines.size() - 1][1].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][1].color = sf::Color(120, 120, 120, 128);
 
                     gridLines.emplace_back();
                     gridLines[gridLines.size() - 1][0] = sf::Vertex({ (float)midPt.x - x, 0.f });
-                    gridLines[gridLines.size() - 1][0].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][0].color = sf::Color(120, 120, 120, 128);
                     gridLines[gridLines.size() - 1][1] = sf::Vertex({ (float)midPt.x - x, (float)screenSize.y });
-                    gridLines[gridLines.size() - 1][1].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][1].color = sf::Color(120, 120, 120, 128);
                 }
                 for (auto y = 0; y < midPt.y; y += gridSize)
                 {
                     gridLines.emplace_back();
                     gridLines[gridLines.size() - 1][0] = sf::Vertex({ 0.f, (float)midPt.y + y });
-                    gridLines[gridLines.size() - 1][0].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][0].color = sf::Color(120, 120, 120, 128);
                     gridLines[gridLines.size() - 1][1] = sf::Vertex({ (float)screenSize.x, (float)midPt.y + y });
-                    gridLines[gridLines.size() - 1][1].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][1].color = sf::Color(120, 120, 120, 128);
 
                     gridLines.emplace_back();
                     gridLines[gridLines.size() - 1][0] = sf::Vertex({ 0.f, (float)midPt.y - y });
-                    gridLines[gridLines.size() - 1][0].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][0].color = sf::Color(120, 120, 120, 128);
                     gridLines[gridLines.size() - 1][1] = sf::Vertex({ (float)screenSize.x, (float)midPt.y - y });
-                    gridLines[gridLines.size() - 1][1].color = sf::Color(180, 180, 180);
+                    gridLines[gridLines.size() - 1][1].color = sf::Color(120, 120, 120, 128);
                 }
             }
         }
@@ -471,7 +482,7 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
 
         // draw
 
-        window.clear(sf::Color(100, 100, 100, 0));
+        window.clear(sf::Color(50, 50, 50, 128));
 
         if (gridShow)
             for (auto& l : gridLines)
@@ -479,9 +490,6 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
 
         for (auto& s : shapes)
             window.draw(s);
-
-
-        SetLayeredWindowAttributes(hWnd, 0, 180, LWA_ALPHA);
 
         ImGui::SFML::Render(window);
 
@@ -532,6 +540,7 @@ int main()
     ++screen.width; ++screen.height;
 
     sf::RenderWindow window(screen, "", sf::Style::None);
+    window.setFramerateLimit(60);
 
     ImGui::SFML::Init(window);
 
@@ -539,8 +548,13 @@ int main()
     midPt = sf::Vector2{ screenSize.x / 2, screenSize.y / 2 };
 
     HWND hWnd = window.getSystemHandle();
-    SetWindowLongPtr(hWnd, GWL_EXSTYLE, GetWindowLongPtr(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-    
+
+    DWM_BLURBEHIND bb;
+    bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
+    bb.fEnable = true;
+    bb.hRgnBlur = CreateRectRgn(0, 0, -1, -1);
+    DwmEnableBlurBehindWindow(hWnd, &bb);
+
     std::vector<sf::RectangleShape> shapes;
 
     // tray handling window
