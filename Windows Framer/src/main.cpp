@@ -19,6 +19,7 @@
 
 // todo
 // edit rects
+// save configs
 
 NOTIFYICONDATA nid; //Tray attribute
 HMENU hMenu; //Tray menu
@@ -147,7 +148,7 @@ public:
         if (button == sf::Mouse::Button::Left)
         {
             sf::RectangleShape newRect;
-            newRect.setFillColor(sf::Color(180, 180, 180, 128));
+            newRect.setFillColor(sf::Color(180, 180, 180, 156));
             newRect.setOutlineThickness(1);
             newRect.setOutlineColor(sf::Color::Black);
             shapes.push_back(newRect);
@@ -339,7 +340,7 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
                             for (auto i = 0; i < windows.size(); ++i)
                             {
                                 if (willSnapIndex == i)
-                                    windows[i]->clear(sf::Color(150, 150, 150, 128));
+                                    windows[i]->clear(sf::Color(150, 150, 150, 156));
                                 else
                                     windows[i]->clear(rectCol);
 
