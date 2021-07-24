@@ -9,6 +9,7 @@
 #include <thread>
 #include <array>
 #include <dwmapi.h>
+#include <fstream>
 
 #include <resource.h>
 
@@ -132,14 +133,52 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 
 
-class MouseManager
+struct MouseManager
 {
-public:
-
     std::vector<sf::Vector2i> pos;
     std::vector<sf::Vector2i> size;
     int current = -1;
     bool isDown = false;
+
+    void Load(const std::string& path, std::vector<sf::RectangleShape>& shapes)
+    {
+        std::ifstream infile(path);
+
+        while (infile.good())
+        {
+            sf::Vector2i p, s;
+            infile >> p.x >> p.y >> s.x >> s.y;
+
+            if (s.x == 0 && s.y == 0) continue;
+
+            std::cout << p.x << " " << p.y << " " << s.x << " " << s.y << std::endl;
+
+            pos.push_back(p);
+            size.push_back(s);
+
+            sf::RectangleShape newRect;
+            newRect.setFillColor(editorRect);
+            newRect.setOutlineThickness(1);
+            newRect.setOutlineColor(sf::Color::Black);
+            newRect.setPosition(p.x, p.y);
+            newRect.setSize({ (float)s.x, (float)s.y });
+            shapes.push_back(newRect);
+        }
+        
+        infile.close();
+    }
+
+    void Save(const std::string& path)
+    {
+        std::ofstream outfile(path);
+
+        for (auto i = 0; i < pos.size(); ++i)
+        {
+            outfile << pos[i].x << " " << pos[i].y << " " << size[i].x << " " << size[i].y << std::endl;
+        }
+
+        outfile.close();
+    }
 
     void OnMousePressed(sf::Mouse::Button button, unsigned int x, unsigned int y, std::vector<sf::RectangleShape>& shapes, ImVec2 impos, ImVec2 imsize, bool snapToGrid, int gridSize)
     {
@@ -564,6 +603,8 @@ int main()
 
     std::vector<sf::RectangleShape> shapes;
 
+    mm.Load("data.data", shapes);
+
     // tray handling window
     std::thread t(TrayHandling);
 
@@ -572,6 +613,8 @@ int main()
     ImGui::SFML::Shutdown();
 
     t.join();
+
+    mm.Save("data.data");
 
     return 0;
 }
