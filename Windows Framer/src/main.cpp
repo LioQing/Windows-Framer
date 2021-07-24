@@ -107,7 +107,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     NULL);
                 if (cmd == ID_SHOW)
                     isHidden = false;
-            if (cmd == ID_EXIT)
+            else if (cmd == ID_EXIT)
                 PostMessage(hWnd, WM_DESTROY, NULL, NULL);
         }
         break;
