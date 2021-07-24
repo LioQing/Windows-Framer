@@ -71,8 +71,8 @@ void InitTray(HINSTANCE hInstance, HWND hWnd)
 
     hMenu = CreatePopupMenu();//Generate tray menu
     // Add two options for the tray menu
-    AppendMenu(hMenu, MF_STRING, ID_SHOW, TEXT("windows framer editor"));
-    AppendMenu(hMenu, MF_STRING, ID_EXIT, TEXT("exit"));
+    AppendMenu(hMenu, MF_STRING, ID_SHOW, TEXT("Windows Framer Editor"));
+    AppendMenu(hMenu, MF_STRING, ID_EXIT, TEXT("Exit"));
 
     Shell_NotifyIcon(NIM_ADD, &nid);
 }
@@ -92,6 +92,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         switch (lParam)
         {
         case WM_RBUTTONDOWN:
+        case WM_CONTEXTMENU:
         {
             // Get mouse coordinates
                 POINT pt; GetCursorPos(&pt);
@@ -103,8 +104,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 //EnableMenuItem(hMenu, ID_SHOW, MF_GRAYED);	
 
                 // Display and get the selected menu
-                int cmd = TrackPopupMenu(hMenu, TPM_RETURNCMD, pt.x, pt.y, NULL, hWnd,
-                    NULL);
+                int cmd = TrackPopupMenu(hMenu, TPM_RETURNCMD, pt.x, pt.y, NULL, hWnd, NULL);
                 if (cmd == ID_SHOW)
                     isHidden = false;
             else if (cmd == ID_EXIT)
@@ -113,8 +113,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
         case WM_LBUTTONDOWN:
             isHidden = false;
-            break;
-        case WM_LBUTTONDBLCLK:
             break;
         }
         break;
@@ -246,6 +244,7 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
     std::vector<std::array<sf::Vertex, 2>> gridLines;
 
     sf::Clock deltaClock;
+    sf::Clock deltaClock2;
     while (window.isOpen())
     {
         // pause
@@ -289,11 +288,12 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
 
             bool isCtrlClicked = sf::Keyboard::isKeyPressed(sf::Keyboard::LControl);
             
-            if (fhWnd != GetForegroundWindow())
+            auto tmphWnd = GetForegroundWindow();
+            if (fhWnd != tmphWnd)
             {
-                fhWnd = GetForegroundWindow();
+                fhWnd = tmphWnd;
                 for (auto& w : windows)
-                    SetForegroundWindow(w->getSystemHandle());
+                    SetWindowPos(w->getSystemHandle(), HWND_TOPMOST, NULL, NULL, NULL, NULL, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
             }
 
             if (isHidden2 && !wasHidden)
@@ -370,7 +370,9 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
             wasCtrlClicked = isCtrlClicked;
             wasHidden = isHidden2;
 
-            window.display();
+            sf::Int64 dt = deltaClock2.restart().asMilliseconds();
+            if (dt < 17)
+                Sleep(17 - dt);
 
             continue;
         }
