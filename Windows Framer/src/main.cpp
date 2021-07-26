@@ -331,8 +331,11 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
             if (fhWnd != tmphWnd)
             {
                 fhWnd = tmphWnd;
+
+                HDWP hdwp = BeginDeferWindowPos(windows.size());
                 for (auto& w : windows)
-                    SetWindowPos(w->getSystemHandle(), HWND_TOPMOST, NULL, NULL, NULL, NULL, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+                    DeferWindowPos(hdwp, w->getSystemHandle(), HWND_TOPMOST, NULL, NULL, NULL, NULL, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+                EndDeferWindowPos(hdwp);
             }
 
             if (isHidden2 && !wasHidden)
@@ -340,7 +343,6 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
                     w->setVisible(false);
 
             SetForegroundWindow(fhWnd);
-            SetActiveWindow(fhWnd);
 
             // if pressed title bar
             if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
@@ -412,8 +414,6 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
             sf::Int64 dt = deltaClock2.restart().asMilliseconds();
             if (dt < 17)
                 Sleep(17 - dt);
-
-            continue;
         }
         else
         {
@@ -451,6 +451,8 @@ void EditorWindow(MouseManager& mm, sf::RenderWindow& window, HWND hWnd, std::ve
         }
 
         //update
+
+        if (isHidden) continue;
 
         ImGui::SFML::Update(window, deltaClock.restart());
 
